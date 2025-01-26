@@ -6,11 +6,20 @@
  * TL;DR - This is where all the tRPC server stuff is created and plugged in. The pieces you will
  * need to use are documented accordingly near the end.
  */
+import type { User as PrismaUser } from "@prisma/client";
 import { initTRPC } from "@trpc/server";
+import type { CreateNextContextOptions } from "@trpc/server/adapters/next";
+import type { Session, User } from "next-auth";
 import superjson from "superjson";
 import { ZodError } from "zod";
 
 import { db } from "~/server/db";
+
+type CreateContextOptions = {
+  headers: Headers;
+  session?: Session | null;
+  user?: PrismaUser;
+};
 
 /**
  * 1. CONTEXT
@@ -24,12 +33,15 @@ import { db } from "~/server/db";
  *
  * @see https://trpc.io/docs/server/context
  */
-export const createTRPCContext = async (opts: { headers: Headers }) => {
+export const CreateTRPCContext = async (opts: CreateContextOptions) => {
   return {
     db,
     ...opts,
   };
 };
+
+type TRPCContext = Awaited<ReturnType<typeof createTRPCContext>> &
+  Partial<CreateNextContextOptions>;
 
 /**
  * 2. INITIALIZATION
@@ -51,6 +63,8 @@ const t = initTRPC.context<typeof createTRPCContext>().create({
     };
   },
 });
+
+const middleware = t.middleware;
 
 /**
  * Create a server-side caller.
@@ -104,3 +118,75 @@ const timingMiddleware = t.middleware(async ({ next, path }) => {
  * are logged in.
  */
 export const publicProcedure = t.procedure.use(timingMiddleware);
+
+const isAuthed = middleware(async ({ ctx, next }) => {
+  const { user, session } = await getUserSession(ctx);
+  if (!user || !session) {
+    throw new Error("UNAUTHORIZED");
+  }
+
+  return next({
+    ctx: { user, session },
+  });
+});
+
+export const authedProcedure = t.procedure.use(isAuthed);
+
+const getSession = async (ctx: TRPCContext) => {
+  const { req, res } = ctx;
+  return req && res ? await getServerSession(req, res, {}) : null;
+};
+
+type Maybe<T> = T | null | undefined;
+
+async function getUserFromSession(
+  ctx: TRPCContext,
+  session: Maybe<Session>,
+): Promise<User | null> {
+  if (!session) return null;
+  if (!session.user?.id) return null;
+
+  const userFromDb = await db.user.findUnique({
+    where: {
+      id: session.user.id,
+    },
+  });
+
+  if (!userFromDb) return null;
+
+  const user: User = {
+    id: userFromDb.id,
+    username: userFromDb.username,
+    email: userFromDb.email,
+    avatarUrl: userFromDb.avatarUrl,
+    locale: userFromDb.locale,
+    role: userFromDb.role,
+  };
+
+  if (userFromDb.organizationId) {
+    const org = await db.organization.findUnique({
+      where: {
+        id: userFromDb.organizationId,
+      },
+    });
+    if (org) {
+      user.org = {
+        id: org.id,
+        name: org.name,
+        slug: org.slug,
+        logoUrl: org.logoUrl,
+      };
+    }
+  }
+
+  return user;
+}
+
+const getUserSession = async (ctx: TRPCContext) => {
+  const session = ctx.session ?? (await getSession(ctx));
+  const user = session
+    ? await getUserFromSession(ctx, session as Session)
+    : null;
+
+  return { user, session };
+};

@@ -6,15 +6,222 @@ generator client {
 }
 
 datasource db {
-    provider = "sqlite"
+    provider = "postgresql"
     url      = env("DATABASE_URL")
 }
 
-model Post {
-    id        Int      @id @default(autoincrement())
-    name      String
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+enum UserPermissionRole {
+    OWNER
+    ADMIN
+    USER
+}
+
+enum MembershipRole {
+    MEMBER
+    ADMIN
+    OWNER
+}
+
+model Organization {
+    id      String  @id @default(cuid())
+    name    String
+    slug    String
+    logoUrl String?
+
+    createdAt   DateTime @default(now())
+    createdById Int
+    createdBy   User     @relation("OrganizationCreatedBy", fields: [createdById], references: [id])
+
+    updatedAt   DateTime @updatedAt
+    updatedById Int?
+    updatedBy   User?    @relation("OrganizationUpdatedBy", fields: [updatedById], references: [id])
+
+    BillingGroup BillingGroup[]
+    User         User[]
+
+    @@index([id])
+    @@index([name])
+}
+
+model BillingGroup {
+    id             Int          @id @default(autoincrement())
+    name           String
+    organization   Organization @relation(fields: [organizationId], references: [id])
+    organizationId String
+
+    createdById Int
+    createdBy   User     @relation("BillingGroupCreatedBy", fields: [createdById], references: [id])
+    createdAt   DateTime @default(now())
+
+    updatedById Int?
+    updatedBy   User?      @relation("BillingGroupUpdatedBy", fields: [updatedById], references: [id])
+    updatedAt   DateTime   @updatedAt
+    shipments   Shipment[]
 
     @@index([name])
+}
+
+enum LocationType {
+    ORIGIN
+    DESTINATION
+}
+
+model Location {
+    id           Int          @id @default(autoincrement())
+    name         String
+    attentionTo  String?
+    address1     String
+    address2     String?
+    city         String
+    postalCode   String
+    province     String
+    country      String
+    instructions String?
+    type         LocationType
+
+    createdAt   DateTime @default(now())
+    createdBy   User     @relation("LocationCreatedBy", fields: [createdById], references: [id])
+    createdById Int
+
+    updatedAt   DateTime? @updatedAt
+    updatedBy   User?     @relation("LocationUpdatedBy", fields: [updatedById], references: [id])
+    updatedById Int?
+
+    deleted   Boolean   @default(false)
+    deletedAt DateTime?
+}
+
+model User {
+    id             Int                @id @default(autoincrement())
+    username       String?
+    name           String?
+    email          String             @unique
+    avatarUrl      String?
+    timeZone       String             @default("America/Toronto")
+    locale         String             @default("en")
+    role           UserPermissionRole @default(USER)
+    organizationId String?
+    organization   Organization?      @relation(fields: [organizationId], references: [id])
+
+    createdOrganizations  Organization[]  @relation("OrganizationCreatedBy")
+    updatedOrganizations  Organization[]  @relation("OrganizationUpdatedBy")
+    createdBillingGroups  BillingGroup[]  @relation("BillingGroupCreatedBy")
+    updatedBillingGroups  BillingGroup[]  @relation("BillingGroupUpdatedBy")
+    createdLocations      Location[]      @relation("LocationCreatedBy")
+    updatedLocations      Location[]      @relation("LocationUpdatedBy")
+    createdShipments      Shipment[]      @relation("ShipmentCreatedBy")
+    updatedShipments      Shipment[]      @relation("ShipmentUpdatedBy")
+    createdManifests      Manifest[]      @relation("ManifestCreatedBy")
+    updatedManifests      Manifest[]      @relation("ManifestUpdatedBy")
+    createdPickupRequests PickupRequest[] @relation("PickupRequestCreatedBy")
+}
+
+enum ShipmentType {
+    PIECE
+    PALLET
+}
+
+enum ShipmentStatus {
+    STAGED
+    CREATED
+    MANIFESTED
+    VOIDED
+}
+
+model Package {
+    id Int @id @default(autoincrement())
+
+    shipment   Shipment @relation(fields: [shipmentId], references: [id])
+    shipmentId Int
+    trackingId Int // the sub package number in the tracking number of the shipment
+
+    length Decimal
+    width  Decimal
+    height Decimal
+    weight Decimal
+
+    @@index([shipmentId])
+}
+
+model Shipment {
+    id             Int     @id @default(autoincrement())
+    trackingNumber String? @unique(sort: Desc)
+
+    billingGroupId Int
+    billingGroup   BillingGroup @relation(fields: [billingGroupId], references: [id])
+
+    pieces Int
+    weight Decimal
+
+    type   ShipmentType
+    status ShipmentStatus
+
+    packages Package[]
+
+    shipperName         String
+    shipperAttentionTo  String?
+    shipperAddress1     String
+    shipperAddress2     String?
+    shipperCity         String
+    shipperProvince     String
+    shipperPostalCode   String
+    shipperCountry      String
+    shipperInstructions String?
+
+    consigneeName         String
+    consigneeAttentionTo  String?
+    consigneeAddress1     String
+    consigneeAddress2     String?
+    consigneeCity         String
+    consigneeProvince     String
+    consigneePostalCode   String
+    consigneeCountry      String
+    consigneeInstructions String?
+
+    Manifest   Manifest? @relation(fields: [manifestId], references: [id])
+    manifestId Int?
+
+    createdAt   DateTime @default(now())
+    createdBy   User     @relation("ShipmentCreatedBy", fields: [createdById], references: [id])
+    createdById Int
+
+    updatedAt   DateTime? @updatedAt
+    updatedBy   User?     @relation("ShipmentUpdatedBy", fields: [updatedById], references: [id])
+    updatedById Int?
+
+    @@index([trackingNumber])
+    @@index([manifestId])
+}
+
+enum ManifestStatus {
+    OPEN
+    CLOSED
+}
+
+model Manifest {
+    id        Int            @id @default(autoincrement())
+    name      String?
+    shipments Shipment[]
+    status    ManifestStatus @default(OPEN)
+
+    createdAt   DateTime @default(now())
+    createdBy   User     @relation("ManifestCreatedBy", fields: [createdById], references: [id])
+    createdById Int
+
+    updatedAt   DateTime? @updatedAt
+    updatedBy   User?     @relation("ManifestUpdatedBy", fields: [updatedById], references: [id])
+    updatedById Int?
+}
+
+model PickupRequest {
+    id                   Int     @id @default(autoincrement())
+    pickupDate           String // "2025-02-01"
+    pickupTimeRangeStart String // "13:00"
+    pickupTimeRangeEnd   String // "13:00"
+    estimatedPieces      Int
+    estimatedWeight      Decimal
+
+    createdAt   DateTime @default(now())
+    createdBy   User     @relation("PickupRequestCreatedBy", fields: [createdById], references: [id])
+    createdById Int
 }
