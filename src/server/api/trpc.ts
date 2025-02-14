@@ -6,7 +6,8 @@
  * TL;DR - This is where all the tRPC server stuff is created and plugged in. The pieces you will
  * need to use are documented accordingly near the end.
  */
-import type { User as PrismaUser } from "@prisma/client";
+import { auth, currentUser } from "@clerk/nextjs/server";
+import { type UserPermissionRole } from "@prisma/client";
 import { initTRPC } from "@trpc/server";
 import type { CreateNextContextOptions } from "@trpc/server/adapters/next";
 import type { Session, User } from "next-auth";
@@ -18,7 +19,7 @@ import { db } from "~/server/db";
 type CreateContextOptions = {
   headers: Headers;
   session?: Session | null;
-  user?: PrismaUser;
+  user?: User;
 };
 
 /**
@@ -33,7 +34,7 @@ type CreateContextOptions = {
  *
  * @see https://trpc.io/docs/server/context
  */
-export const CreateTRPCContext = async (opts: CreateContextOptions) => {
+export const createTRPCContext = async (opts: CreateContextOptions) => {
   return {
     db,
     ...opts,
@@ -120,73 +121,42 @@ const timingMiddleware = t.middleware(async ({ next, path }) => {
 export const publicProcedure = t.procedure.use(timingMiddleware);
 
 const isAuthed = middleware(async ({ ctx, next }) => {
-  const { user, session } = await getUserSession(ctx);
-  if (!user || !session) {
-    throw new Error("UNAUTHORIZED");
-  }
+  await auth(); // ensure signed in, otherwise redirect to sign in
+  const _user = await currentUser();
+  if (!_user) throw new Error("UNAUTHORIZED");
+
+  const email = _user.primaryEmailAddress?.emailAddress;
+  if (!email) throw new Error("EMAIL MISSING");
+
+  const userFromDb = await db.user.findUnique({
+    where: {
+      id: _user.id,
+    },
+    include: {
+      organization: true,
+    },
+  });
+
+  if (!userFromDb) throw new Error("USER IS NULL");
+  if (!userFromDb.organization) throw new Error("USER ORG IS NULL");
+
+  const user: User = {
+    id: _user?.id,
+    email,
+    avatarUrl: _user?.imageUrl,
+    username: _user?.username,
+    org: {
+      id: userFromDb.organization.id,
+      slug: userFromDb.organization.slug,
+      logoUrl: userFromDb.organization.logoUrl,
+      name: userFromDb.organization.name,
+    },
+    role: _user.publicMetadata.role as UserPermissionRole,
+  };
 
   return next({
-    ctx: { user, session },
+    ctx: { user },
   });
 });
 
 export const authedProcedure = t.procedure.use(isAuthed);
-
-const getSession = async (ctx: TRPCContext) => {
-  const { req, res } = ctx;
-  return req && res ? await getServerSession(req, res, {}) : null;
-};
-
-type Maybe<T> = T | null | undefined;
-
-async function getUserFromSession(
-  ctx: TRPCContext,
-  session: Maybe<Session>,
-): Promise<User | null> {
-  if (!session) return null;
-  if (!session.user?.id) return null;
-
-  const userFromDb = await db.user.findUnique({
-    where: {
-      id: session.user.id,
-    },
-  });
-
-  if (!userFromDb) return null;
-
-  const user: User = {
-    id: userFromDb.id,
-    username: userFromDb.username,
-    email: userFromDb.email,
-    avatarUrl: userFromDb.avatarUrl,
-    locale: userFromDb.locale,
-    role: userFromDb.role,
-  };
-
-  if (userFromDb.organizationId) {
-    const org = await db.organization.findUnique({
-      where: {
-        id: userFromDb.organizationId,
-      },
-    });
-    if (org) {
-      user.org = {
-        id: org.id,
-        name: org.name,
-        slug: org.slug,
-        logoUrl: org.logoUrl,
-      };
-    }
-  }
-
-  return user;
-}
-
-const getUserSession = async (ctx: TRPCContext) => {
-  const session = ctx.session ?? (await getSession(ctx));
-  const user = session
-    ? await getUserFromSession(ctx, session as Session)
-    : null;
-
-  return { user, session };
-};

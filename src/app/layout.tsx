@@ -7,12 +7,11 @@ import { TRPCReactProvider } from "~/trpc/react";
 
 import {
   ClerkProvider,
-  SignInButton,
   SignedIn,
   SignedOut,
+  SignInButton,
   UserButton,
 } from "@clerk/nextjs";
-import { Button } from "~/components/ui/button";
 
 export const metadata: Metadata = {
   title: "Create T3 App",
@@ -30,14 +29,10 @@ export default function RootLayout({
           <main className="bg-gradient-to-b from-[#2e026d] to-[#15162c] text-white">
             <div className="flex flex-col items-end pr-3 pt-3">
               <SignedOut>
-                <Button variant="default">
-                  <SignInButton />
-                </Button>
+                <SignInButton />
               </SignedOut>
               <SignedIn>
-                <Button variant="ghost">
-                  <UserButton />
-                </Button>
+                <UserButton />
               </SignedIn>
             </div>
             <TRPCReactProvider>{children}</TRPCReactProvider>

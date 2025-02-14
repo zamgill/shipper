@@ -15,7 +15,7 @@ declare module "next-auth" {
   }
 
   interface User extends Omit<DefaultUser, "id"> {
-    id: PrismaUser["id"];
+    id: string;
     org?: Org;
     username?: PrismaUser["username"];
     email: PrismaUser["email"];

@@ -29,11 +29,11 @@ model Organization {
     logoUrl String?
 
     createdAt   DateTime @default(now())
-    createdById Int
+    createdById String
     createdBy   User     @relation("OrganizationCreatedBy", fields: [createdById], references: [id])
 
     updatedAt   DateTime @updatedAt
-    updatedById Int?
+    updatedById String?
     updatedBy   User?    @relation("OrganizationUpdatedBy", fields: [updatedById], references: [id])
 
     BillingGroup BillingGroup[]
@@ -49,11 +49,11 @@ model BillingGroup {
     organization   Organization @relation(fields: [organizationId], references: [id])
     organizationId String
 
-    createdById Int
+    createdById String
     createdBy   User     @relation("BillingGroupCreatedBy", fields: [createdById], references: [id])
     createdAt   DateTime @default(now())
 
-    updatedById Int?
+    updatedById String?
     updatedBy   User?      @relation("BillingGroupUpdatedBy", fields: [updatedById], references: [id])
     updatedAt   DateTime   @updatedAt
     shipments   Shipment[]
@@ -81,18 +81,18 @@ model Location {
 
     createdAt   DateTime @default(now())
     createdBy   User     @relation("LocationCreatedBy", fields: [createdById], references: [id])
-    createdById Int
+    createdById String
 
     updatedAt   DateTime? @updatedAt
     updatedBy   User?     @relation("LocationUpdatedBy", fields: [updatedById], references: [id])
-    updatedById Int?
+    updatedById String?
 
     deleted   Boolean   @default(false)
     deletedAt DateTime?
 }
 
 model User {
-    id             Int                @id @default(autoincrement())
+    id             String             @id
     username       String?
     name           String?
     email          String             @unique
@@ -183,11 +183,11 @@ model Shipment {
 
     createdAt   DateTime @default(now())
     createdBy   User     @relation("ShipmentCreatedBy", fields: [createdById], references: [id])
-    createdById Int
+    createdById String
 
     updatedAt   DateTime? @updatedAt
     updatedBy   User?     @relation("ShipmentUpdatedBy", fields: [updatedById], references: [id])
-    updatedById Int?
+    updatedById String?
 
     @@index([trackingNumber])
     @@index([manifestId])
@@ -206,11 +206,11 @@ model Manifest {
 
     createdAt   DateTime @default(now())
     createdBy   User     @relation("ManifestCreatedBy", fields: [createdById], references: [id])
-    createdById Int
+    createdById String
 
     updatedAt   DateTime? @updatedAt
     updatedBy   User?     @relation("ManifestUpdatedBy", fields: [updatedById], references: [id])
-    updatedById Int?
+    updatedById String?
 }
 
 model PickupRequest {
@@ -223,5 +223,5 @@ model PickupRequest {
 
     createdAt   DateTime @default(now())
     createdBy   User     @relation("PickupRequestCreatedBy", fields: [createdById], references: [id])
-    createdById Int
+    createdById String
 }
