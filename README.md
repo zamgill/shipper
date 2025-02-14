@@ -1,29 +1,26 @@
-# Create T3 App
+# Shipper
 
-This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3-app`.
+allows rate shopping and shipping through different couriers.
 
-## What's next? How do I make an app with this?
+## TODO
 
-We try to keep this project as simple as possible, so you can start with just the scaffolding we set up for you, and add additional things later when they become necessary.
+- [ ] add onboarding page
+  - require basic info required to setup tenant / org and user account
+- [ ] add dashboard page
+- [ ] add base layout for dashboard
+- [ ] add create shipment form
+- [ ] integrate with UPS API for rating
+  - use [authcode grant type](https://developer.ups.com/api/reference/oauth/authorization-code?loc=en_CA) auth for delegated rates
+- [ ] integrate with UPS API for creating shipments
+- [ ] update create shipment form to allow predefined origins and destinations
+  - address should be categorized as origin, destination or both
+- [ ] add plans page
+- [ ] update onboarding page to require credit card info
 
-If you are not familiar with the different technologies used in this project, please refer to the respective docs. If you still are in the wind, please join our [Discord](https://t3.gg/discord) and ask for help.
+### UPS rating instructions (manual)
 
-- [Next.js](https://nextjs.org)
-- [NextAuth.js](https://next-auth.js.org)
-- [Prisma](https://prisma.io)
-- [Drizzle](https://orm.drizzle.team)
-- [Tailwind CSS](https://tailwindcss.com)
-- [tRPC](https://trpc.io)
-
-## Learn More
-
-To learn more about the [T3 Stack](https://create.t3.gg/), take a look at the following resources:
-
-- [Documentation](https://create.t3.gg/)
-- [Learn the T3 Stack](https://create.t3.gg/en/faq#what-learning-resources-are-currently-available) — Check out these awesome tutorials
-
-You can check out the [create-t3-app GitHub repository](https://github.com/t3-oss/create-t3-app) — your feedback and contributions are welcome!
-
-## How do I deploy this?
-
-Follow our deployment guides for [Vercel](https://create.t3.gg/en/deployment/vercel), [Netlify](https://create.t3.gg/en/deployment/netlify) and [Docker](https://create.t3.gg/en/deployment/docker) for more information.
+- get the origin postal code prefix [zone data](https://www.ups.com/ca/en/support/shipping-support/shipping-costs-rates.page)
+- find the row whose postal code range has destination postal code
+- pick the zone number based on the service level required
+- find the [rate data](https://www.ups.com/assets/resources/webcontent/en_CA/rate_guide_ca.pdf) to get rate based on billable weight.
+  - see rate guide linked above for instructions to calculate billable weight
