@@ -4,7 +4,7 @@ allows rate shopping and shipping through different couriers.
 
 ## TODO
 
-- [ ] add onboarding page
+- [x] add onboarding page
   - require basic info required to setup tenant / org and user account
 - [ ] add dashboard page
 - [ ] add base layout for dashboard
